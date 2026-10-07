@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: languages
+    description: Language registry and capability information
+  - name: adaptations
+    description: Accessibility and multilingual adaptation pipeline
 paths:
   /healthz:
     get:
@@ -24,6 +28,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /languages:
+    get:
+      operationId: listLanguages
+      tags: [languages]
+      summary: List languages and provider capabilities
+      responses:
+        "200":
+          description: Language registry
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Language"
+  /languages/{code}:
+    get:
+      operationId: getLanguage
+      tags: [languages]
+      summary: Get a language by its stable language code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 8
+      responses:
+        "200":
+          description: Language details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Language"
+        "404":
+          description: Language not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /adaptations:
+    post:
+      operationId: createAdaptation
+      tags: [adaptations]
+      summary: Detect, plan, adapt, translate, and verify user content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdaptationInput"
+      responses:
+        "201":
+          description: Verified adaptation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdaptationResult"
+        "400":
+          description: Invalid content or unsupported requested capability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: AI provider is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +113,163 @@ components:
           type: string
       required:
         - status
+    CapabilityState:
+      type: string
+      enum: [FULL, PARTIAL, UNAVAILABLE]
+    LanguageCapabilities:
+      type: object
+      properties:
+        detection:
+          $ref: "#/components/schemas/CapabilityState"
+        translation:
+          $ref: "#/components/schemas/CapabilityState"
+        transliteration:
+          $ref: "#/components/schemas/CapabilityState"
+        tts:
+          $ref: "#/components/schemas/CapabilityState"
+        stt:
+          $ref: "#/components/schemas/CapabilityState"
+        ocr:
+          $ref: "#/components/schemas/CapabilityState"
+        imageText:
+          $ref: "#/components/schemas/CapabilityState"
+      required:
+        - detection
+        - translation
+        - transliteration
+        - tts
+        - stt
+        - ocr
+        - imageText
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        nativeName:
+          type: string
+        region:
+          type: string
+        script:
+          type: string
+        direction:
+          type: string
+          enum: [ltr, rtl]
+        capabilities:
+          $ref: "#/components/schemas/LanguageCapabilities"
+      required: [code, name, nativeName, region, script, direction, capabilities]
+    AdaptationInput:
+      type: object
+      properties:
+        text:
+          type: ["string", "null"]
+          maxLength: 40000
+        imageDataUrls:
+          type: array
+          maxItems: 4
+          items:
+            type: string
+            maxLength: 6000000
+        sourceLanguage:
+          type: ["string", "null"]
+          maxLength: 8
+        targetLanguage:
+          type: string
+          minLength: 2
+          maxLength: 8
+        readingLevel:
+          type: string
+          enum: [plain, standard]
+        bilingual:
+          type: boolean
+        describeImages:
+          type: boolean
+      required: [targetLanguage, readingLevel, bilingual, describeImages]
+    AdaptationPlanStep:
+      type: object
+      properties:
+        title:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [complete, not-needed, unavailable]
+      required: [title, reason, status]
+    Verification:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [passed, needs-review]
+        notes:
+          type: array
+          items:
+            type: string
+      required: [status, notes]
+    AdaptationResult:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        sourceLanguage:
+          type: string
+        sourceLanguageName:
+          type: string
+        targetLanguage:
+          type: string
+        targetLanguageName:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        summary:
+          type: string
+        plan:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdaptationPlanStep"
+        adaptedText:
+          type: string
+        translatedText:
+          type: ["string", "null"]
+        imageDescription:
+          type: ["string", "null"]
+        keyFacts:
+          type: array
+          items:
+            type: string
+        verification:
+          $ref: "#/components/schemas/Verification"
+        notices:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - createdAt
+        - sourceLanguage
+        - sourceLanguageName
+        - targetLanguage
+        - targetLanguageName
+        - confidence
+        - summary
+        - plan
+        - adaptedText
+        - translatedText
+        - imageDescription
+        - keyFacts
+        - verification
+        - notices
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
 
