@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ADAPTIA AI"
+description = "An accessibility-first multilingual information adaptation platform that turns text and documents into simpler, translated, and preference-aware formats, with transparent verification and language capability reporting."
+version = "1.0.0"
+id = "artifacts/adaptia-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23166
+
+[services.development]
+run = "pnpm --filter @workspace/adaptia-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/adaptia-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/adaptia-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23166"
+BASE_PATH = "/"
